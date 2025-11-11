@@ -6,9 +6,13 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h1>Search Games</h1>
+  <h1>Ricerca contenuti</h1>
   <form action="/results" method="get">
-    <input type="text" name="q" placeholder="Search games..." required />
+    <input type="text" name="q" placeholder="Search here" required>
+    <select name="type">
+      <option value="game">Games</option>
+      <option value="movie">Films</option>
+    </select>
     <button type="submit">Search</button>
   </form>
 </body>
