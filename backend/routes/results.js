@@ -32,6 +32,7 @@ router.get('/', async (req, res) => {
         title: item.title || "No title",
         provider,       // only the domain
         page: item.page || "", // full URL of the source page
+        type: item.type,
         links: item.links || [] // array of magnet links
       };
     });
