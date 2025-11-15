@@ -9,6 +9,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/material": "^7.3.5",
     "build": "^0.1.4",
+    "dotenv": "^17.2.3",
     "framer-motion": "^10.18.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

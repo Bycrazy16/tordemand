@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "framer-motion";
 const MotionBox = motion(Box);
 const MotionImage = motion(Image);
 
+const PORT = process.env.PORT;
+
 function App() {
   /** ----------------------------
    *  STATE VARIABLES
@@ -62,14 +64,14 @@ function App() {
    *  FETCH SEARCH RESULTS
    *  ----------------------------
    *  Calls your backend API and retrieves results
-   *  Example endpoint: http://localhost:6969/api/results
+   *  Example endpoint: http://localhost:PORT/api/results
    */
   const fetchResults = async (q) => {
     try {
       setLoading(true);
 
       const res = await fetch(
-        `http://localhost:6969/api/results?type=${type}&q=${encodeURIComponent(q)}`
+        `http://localhost:${PORT}/api/results?type=${type}&q=${encodeURIComponent(q)}`
       );
 
       if (!res.ok) throw new Error("Network response was not ok");
@@ -95,27 +97,29 @@ function App() {
    *  TORRENT HANDLING FUNCTION
    *  ----------------------------
    *  Handles three possible link types:
-   *  1️⃣ magnet:? links → directly open via Torrent Control browser extension
-   *  2️⃣ .torrent file → downloads the torrent without leaving the page
-   *  3️⃣ any other link → opens normally in a new tab
+   *  1️⃣ .magnet → directly open via Torrent Control browser extension
+   *  2️⃣ .torrent → downloads the torrent without leaving the page
+   *  3️⃣ redirect → opens the link in a new tab
    */
-  const openTorrent = async (link, name = "file.torrent") => {
+  const openTorrent = async (linkObj) => {
+    const { url, type } = linkObj;
+
     try {
       // CASE 1: Magnet link → triggers torrent client through browser extension
-      if (link.startsWith("magnet:")) {
-        window.location.href = link; // Torrent Control will catch this
+      if (type === ".magnet") {
+        window.location.href = url;
         return;
       }
 
       // CASE 2: Direct .torrent file download
-      if (link.endsWith(".torrent")) {
-        const res = await fetch(link);
+      if (type === ".torrent") {
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Error downloading torrent file");
 
         const blob = await res.blob(); // Convert response to binary
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob); // Create temporary download link
-        a.download = name;
+        a.download = "file.torrent";
         document.body.appendChild(a);
         a.click(); // Trigger download
         a.remove(); // Clean up element
@@ -123,8 +127,14 @@ function App() {
         return;
       }
 
-      // CASE 3: Any other link → open in new tab (fallback)
-      window.open(link, "_blank");
+      // CASE 3: Redirect link → open in new tab
+      if (type === "redirect") {
+        window.open(url, "_blank");
+        return;
+      }
+
+      // fallback
+      window.open(url, "_blank");
     } catch (err) {
       console.error("Error handling torrent link:", err);
     }
@@ -204,7 +214,7 @@ function App() {
         <AnimatePresence mode="wait">
           {results.length > 0 && !transitioning && (
             <MotionBox
-              key={query}
+              // Removed key={query} to prevent results disappearing while typing
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
@@ -242,10 +252,8 @@ function App() {
                         key={i}
                         size="sm"
                         colorScheme="green"
-                        // Clicking the button triggers torrent control or download
-                        onClick={() =>
-                          openTorrent(link, `${item.title}-${i + 1}.torrent`)
-                        }
+                        // Clicking the button triggers torrent control, download, or redirect
+                        onClick={() => openTorrent(link)}
                       >
                         Start {i + 1}
                       </Button>
