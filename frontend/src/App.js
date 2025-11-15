@@ -14,79 +14,81 @@ import {
 import { SearchIcon } from "@chakra-ui/icons";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Motion wrappers for smooth animation effects
+// Motion wrappers for animation
 const MotionBox = motion(Box);
 const MotionImage = motion(Image);
 
-const PORT = process.env.PORT;
+const PORT = process.env.REACT_APP_API_PORT;
 
 function App() {
   /** ----------------------------
    *  STATE VARIABLES
    *  ----------------------------
    */
-  const [type, setType] = useState("games"); // Search category ("games" or "movies")
-  const [query, setQuery] = useState(""); // Current search input
-  const [results, setResults] = useState([]); // List of search results
-  const [searched, setSearched] = useState(false); // True after first search (hides logo)
-  const [loading, setLoading] = useState(false); // Loading indicator
-  const [transitioning, setTransitioning] = useState(false); // Used for fade-out / fade-in animation
+  const [type, setType] = useState("games"); // Search category
+  const [query, setQuery] = useState(""); // Search input
+  const [results, setResults] = useState([]); // Array of search results
+  const [searched, setSearched] = useState(false); // Hide logo after first search
+  const [loading, setLoading] = useState(false); // Loading spinner
+  const [transitioning, setTransitioning] = useState(false); // Used for fade animation
 
   /** ----------------------------
    *  EVENT HANDLERS
    *  ----------------------------
    */
 
-  // Trigger search when pressing Enter key
+  // Trigger search on Enter key
   const handleKeyPress = (e) => {
     if (e.key === "Enter") handleSearch();
   };
 
-  // Main search handler (called on button click or Enter)
+  // Trigger search on button click
   const handleSearch = async () => {
-    if (!query.trim() || loading) return; // Prevent empty or repeated searches
+    if (!query.trim() || loading) return;
 
-    setSearched(true); // Hide the logo on first search
+    setSearched(true);
 
-    // If old results exist → fade them out first before loading new ones
+    // Fade out previous results
     if (results.length > 0) {
-      setTransitioning(true); // Start fade-out
-      await new Promise((resolve) => setTimeout(resolve, 400)); // Wait 400ms (exit animation)
-      setResults([]); // Clear previous results
-      await new Promise((resolve) => setTimeout(resolve, 400)); // Wait again before fade-in
+      setTransitioning(true);
+      await new Promise((r) => setTimeout(r, 300));
+      setResults([]);
+      await new Promise((r) => setTimeout(r, 300));
     }
 
-    // Fetch new search results
     fetchResults(query);
   };
 
   /** ----------------------------
    *  FETCH SEARCH RESULTS
    *  ----------------------------
-   *  Calls your backend API and retrieves results
-   *  Example endpoint: http://localhost:PORT/api/results
    */
   const fetchResults = async (q) => {
     try {
       setLoading(true);
-
       const res = await fetch(
         `http://localhost:${PORT}/api/results?type=${type}&q=${encodeURIComponent(q)}`
       );
-
       if (!res.ok) throw new Error("Network response was not ok");
 
       const data = await res.json();
 
-      // Add a unique _key to each result (important for React animations)
+      // Normalize results and add unique _key
       const keyed = Array.isArray(data)
-        ? data.map((item, idx) => ({ ...item, _key: `${q}-${idx}` }))
+        ? data.map((item, idx) => ({
+            ...item,
+            _key: `${q}-${idx}`,
+            // Convert string links to objects with url + type
+            links: item.links.map((url) =>
+              typeof url === "string" ? { url, type: item.type } : url
+            ),
+          }))
         : [];
 
-      setResults(keyed); // Save the new results
+      setResults(keyed);
     } catch (err) {
       console.error("Fetch error:", err);
-      setResults([]); // Clear on error
+      setResults([]);
     } finally {
       setLoading(false);
       setTransitioning(false);
@@ -96,45 +98,33 @@ function App() {
   /** ----------------------------
    *  TORRENT HANDLING FUNCTION
    *  ----------------------------
-   *  Handles three possible link types:
-   *  1️⃣ .magnet → directly open via Torrent Control browser extension
-   *  2️⃣ .torrent → downloads the torrent without leaving the page
-   *  3️⃣ redirect → opens the link in a new tab
    */
   const openTorrent = async (linkObj) => {
     const { url, type } = linkObj;
-
     try {
-      // CASE 1: Magnet link → triggers torrent client through browser extension
       if (type === ".magnet") {
+        // Open magnet link directly
         window.location.href = url;
-        return;
-      }
-
-      // CASE 2: Direct .torrent file download
-      if (type === ".torrent") {
+      } else if (type === ".torrent") {
+        // Download torrent file
         const res = await fetch(url);
         if (!res.ok) throw new Error("Error downloading torrent file");
 
-        const blob = await res.blob(); // Convert response to binary
+        const blob = await res.blob();
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob); // Create temporary download link
+        a.href = URL.createObjectURL(blob);
         a.download = "file.torrent";
         document.body.appendChild(a);
-        a.click(); // Trigger download
-        a.remove(); // Clean up element
-        URL.revokeObjectURL(a.href); // Release memory
-        return;
-      }
-
-      // CASE 3: Redirect link → open in new tab
-      if (type === "redirect") {
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      } else if (type === "redirect") {
+        // Open redirect link in new tab
         window.open(url, "_blank");
-        return;
+      } else {
+        // Fallback
+        window.open(url, "_blank");
       }
-
-      // fallback
-      window.open(url, "_blank");
     } catch (err) {
       console.error("Error handling torrent link:", err);
     }
@@ -145,18 +135,18 @@ function App() {
    *  ----------------------------
    */
   return (
-    <Box p={8} maxW="800px" mx="auto" textAlign="center">
-      <VStack spacing={6} align="stretch">
+    <Box p={6} maxW="800px" mx="auto" textAlign="center">
+      <VStack spacing={4} align="stretch">
         {/* ----------------------------
-            Animated logo before first search
+            Logo with collapse animation
             ---------------------------- */}
         <Box
-          h={searched ? "0px" : "350px"} // Collapses after first search
+          h={searched ? "0px" : "400px"}
           display="flex"
           justifyContent="center"
           alignItems="center"
           overflow="hidden"
-          transition="height 0.7s ease"
+          transition="height 0.6s ease"
         >
           <AnimatePresence>
             {!searched && (
@@ -164,98 +154,103 @@ function App() {
                 key="logo"
                 src="/logo.png"
                 alt="Logo"
-                boxSize="350px"
-                initial={{ opacity: 0, y: 30 }}
+                boxSize="400px"
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -50 }}
-                transition={{ duration: 0.8, ease: "easeInOut" }}
+                exit={{ opacity: 0, y: -30 }}
+                transition={{ duration: 0.7 }}
               />
             )}
           </AnimatePresence>
         </Box>
 
         {/* ----------------------------
-            Search bar section
+            App title
+            ---------------------------- */}
+        <MotionBox
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          textAlign="center"
+          mb={4}
+        >
+          <Text fontSize="3xl" fontWeight="bold">
+            TorDemand
+          </Text>
+        </MotionBox>
+
+        {/* ----------------------------
+            Search bar
             ---------------------------- */}
         <HStack spacing={2} justify="center">
-          {/* Select between games or movies */}
           <Select value={type} onChange={(e) => setType(e.target.value)} w="150px">
             <option value="games">Games</option>
             <option value="movies">Movies</option>
           </Select>
 
-          {/* Text input for search query */}
           <Input
             placeholder="Search..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyPress} // Press Enter to search
+            onKeyDown={handleKeyPress}
             w="300px"
           />
 
-          {/* Search button (blue, with spinner on loading) */}
           <Button colorScheme="blue" onClick={handleSearch} isLoading={loading}>
             <SearchIcon />
           </Button>
         </HStack>
 
         {/* ----------------------------
-            Loading spinner while fetching
+            Loading spinner
             ---------------------------- */}
         {loading && (
-          <Box textAlign="center" py={4}>
+          <Box textAlign="center" py={3}>
             <Spinner size="lg" />
           </Box>
         )}
 
         {/* ----------------------------
-            Search results with fade animations
+            Search results
             ---------------------------- */}
         <AnimatePresence mode="wait">
           {results.length > 0 && !transitioning && (
             <MotionBox
-              // Removed key={query} to prevent results disappearing while typing
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.4 }}
             >
               {results.map((item) => (
                 <MotionBox
                   key={item._key}
                   borderWidth="1px"
                   borderRadius="md"
-                  p={4}
+                  p={3}
                   mb={2}
-                  initial={{ opacity: 0, y: 30 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 30 }}
+                  exit={{ opacity: 0, y: 15 }}
                   transition={{ duration: 0.3 }}
                 >
-                  {/* Title link (opens provider page) */}
-                  <Link
-                    href={item.page}
-                    color="blue.500"
-                    isExternal
-                    fontWeight="bold"
-                  >
+                  {/* Title linking to provider page */}
+                  <Link href={item.page} color="blue.500" isExternal fontWeight="bold">
                     {item.title}
                   </Link>
 
                   {/* Provider name */}
                   <Text>Provider: {item.provider}</Text>
 
-                  {/* Torrent buttons section */}
+                  {/* Buttons for each link */}
                   <HStack mt={2} spacing={2} justify="center">
-                    {item.links?.map((link, i) => (
+                    {item.links?.map((linkObj, i) => (
                       <Button
                         key={i}
                         size="sm"
                         colorScheme="green"
-                        // Clicking the button triggers torrent control, download, or redirect
-                        onClick={() => openTorrent(link)}
+                        onClick={() => openTorrent(linkObj)}
                       >
-                        Start {i + 1}
+                        {linkObj.type} {/* Show type inside button */}
                       </Button>
                     ))}
                   </HStack>
